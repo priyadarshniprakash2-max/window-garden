@@ -1,4 +1,4 @@
-name: Window Garden CI
+name: Window Garden CI/CD
 
 on:
   push:
@@ -61,3 +61,59 @@ jobs:
       - name: Build React application
         working-directory: frontend
         run: npm run build
+
+  deploy:
+    name: Deploy to AWS EC2
+    needs:
+      - backend-tests
+      - frontend-build
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+
+    steps:
+      - name: Deploy Window Garden
+        run: |
+          set -euo pipefail
+
+          cd /home/ubuntu/window-garden
+
+          echo "Pulling latest code..."
+          git fetch origin main
+          git reset --hard origin/main
+
+          echo "Building React frontend..."
+          cd frontend
+          npm ci
+          npm run build
+
+          echo "Updating backend dependencies..."
+          cd ../backend
+          .venv/bin/python -m pip install -r requirements.txt
+
+          echo "Restarting FastAPI..."
+          sudo systemctl restart window-garden
+
+          echo "Checking backend service..."
+          sudo systemctl is-active --quiet window-garden
+
+          echo "Checking backend health..."
+          for attempt in {1..10}; do
+            if curl -fsS http://127.0.0.1:8000/api/health; then
+              break
+            fi
+
+            if [ "$attempt" -eq 10 ]; then
+              echo "Backend health check failed!"
+              exit 1
+            fi
+
+            sleep 3
+          done
+
+          echo "Checking website through Nginx..."
+          curl -fsSI http://127.0.0.1/
+
+          echo "Window Garden deployment successful!"
