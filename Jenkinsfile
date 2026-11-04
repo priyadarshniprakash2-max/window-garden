@@ -60,52 +60,52 @@ pipeline {
                           -o UserKnownHostsFile=/var/jenkins_home/.ssh/known_hosts \
                           ubuntu@15.252.164.15 'bash -se' <<'REMOTE'
 
-                        set -euo pipefail
+set -euo pipefail
 
-                        echo "Updating Window Garden source code..."
+echo "Updating Window Garden source code..."
 
-                        cd /home/ubuntu/window-garden
-                        git fetch origin main
-                        git reset --hard origin/main
+cd /home/ubuntu/window-garden
+git fetch origin main
+git reset --hard origin/main
 
-                        echo "Building React frontend..."
+echo "Building React frontend..."
 
-                        cd frontend
-                        npm ci
-                        npm run build
+cd frontend
+npm ci
+npm run build
 
-                        echo "Updating backend dependencies..."
+echo "Updating backend dependencies..."
 
-                        cd ../backend
-                        .venv/bin/python -m pip install -r requirements.txt
+cd ../backend
+.venv/bin/python -m pip install -r requirements.txt
 
-                        echo "Restarting FastAPI..."
+echo "Restarting FastAPI..."
 
-                        sudo systemctl restart window-garden
-                        sudo systemctl is-active --quiet window-garden
+sudo systemctl restart window-garden
+sudo systemctl is-active --quiet window-garden
 
-                        echo "Checking backend health..."
+echo "Checking backend health..."
 
-                        for attempt in {1..10}; do
-                            if curl -fsS http://127.0.0.1:8000/api/health; then
-                                break
-                            fi
+for attempt in {1..10}; do
+    if curl -fsS http://127.0.0.1:8000/api/health; then
+        break
+    fi
 
-                            if [ "$attempt" -eq 10 ]; then
-                                echo "Backend health check failed!"
-                                exit 1
-                            fi
+    if [ "$attempt" -eq 10 ]; then
+        echo "Backend health check failed!"
+        exit 1
+    fi
 
-                            sleep 3
-                        done
+    sleep 3
+done
 
-                        echo "Checking Nginx..."
+echo "Checking Nginx..."
 
-                        curl -fsSI http://127.0.0.1/
+curl -fsSI http://127.0.0.1/
 
-                        echo "EC2 deployment successful!"
+echo "EC2 deployment successful!"
 
-                        REMOTE
+REMOTE
                     '''
                 }
             }
